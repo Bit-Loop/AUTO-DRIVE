@@ -37,7 +37,7 @@ cmd_setup() {
   install -d -m 0755 "$AUTO_DRIVE_HOME/.local/bin"
   cat > "$AUTO_DRIVE_HOME/.local/bin/drive-status" << EOF
 #!/usr/bin/env bash
-exec "$DRIVE_MOUNT/run.sh" status "\$@"
+exec /usr/bin/env bash "$DRIVE_MOUNT/run.sh" status "\$@"
 EOF
   chmod 0755 "$AUTO_DRIVE_HOME/.local/bin/drive-status"
   log_ok "AUTO-DRIVE setup complete! Run './run.sh passwd' anytime to change your vault password."
@@ -148,8 +148,9 @@ cmd_passwd() {
   sudo systemctl stop auto-drive-crypt.service
   rm -rf "$AUTO_DRIVE_CACHE_DIR/crypt"
 
-  rclone --config="$RCLONE_CONF" purge "${GDRIVE_REMOTE}:${GDRIVE_DRIVE_PATH}/encrypted" 2>/dev/null || true
-  rclone --config="$RCLONE_CONF" mkdir "${GDRIVE_REMOTE}:${GDRIVE_DRIVE_PATH}/encrypted"
+  rclone --config="$RCLONE_CONF" delete "${GDRIVE_REMOTE}:${GDRIVE_DRIVE_PATH}/encrypted" 2>/dev/null || true
+  rclone --config="$RCLONE_CONF" rmdirs "${GDRIVE_REMOTE}:${GDRIVE_DRIVE_PATH}/encrypted" --leave-root 2>/dev/null || true
+  mkdir -p "$DRIVE_MOUNT/encrypted"
 
   mapfile -t KEYS < <(printf '%s' "$new_pass" | derive_crypt_keys)
   unset new_pass confirm_pass

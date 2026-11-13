@@ -71,6 +71,7 @@ if [[ "\$MODE" == "plain" ]]; then
   mkdir -p "\$DRIVE_MOUNT"
   exec /usr/bin/rclone mount "\${GDRIVE_REMOTE}:\${GDRIVE_DRIVE_PATH}" "\$DRIVE_MOUNT" \\
     "\${COMMON_FLAGS[@]}" \\
+    --file-perms=0755 \\
     --cache-dir="\$AUTO_DRIVE_CACHE_DIR/plain" \\
     --vfs-write-back=30s \\
     --exclude="/encrypted/**" \\
