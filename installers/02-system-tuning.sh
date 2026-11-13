@@ -47,7 +47,7 @@ EOF
   chown "$AUTO_DRIVE_USER:$AUTO_DRIVE_GROUP" "$AUTO_DRIVE_HOME/.duckdbrc"
 fi
 
-# 5. Protect fd (Ctrl-T) and ripgrep from accidentally crawling 20 TB ~/DRIVE when run in $HOME,
+# 5. Protect fd (Ctrl-T) and ripgrep from accidentally crawling ~/DRIVE over the network when run in $HOME,
 #    while keeping fd/rg working normally when explicitly inside ~/DRIVE!
 MOUNT_REL="/$(basename "$DRIVE_MOUNT")/"
 touch "$AUTO_DRIVE_HOME/.ignore"

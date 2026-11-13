@@ -305,7 +305,7 @@ Usage: ./run.sh <command>
 Commands:
   setup           Install dependencies, link Google Drive, set vault password, enable boot mounts & timers
   status          Show mount health, dynamic 20% cache usage, index count, snapshots, and RAM/swap
-  find [query]    Instant <5ms search across 20 TB local index (interactive fzf picker if no query; alias: drive-find)
+  find [query]    Instant <20ms search across local index (interactive fzf picker if no query; alias: drive-find)
   reindex         Force remote dir-cache refresh + rebuild local file index immediately
   backup          Trigger an immediate encrypted .tar.zst system snapshot into ~/DRIVE/encrypted/snapshots/
   evict           Immediately pop/evict unlocked cached files locally (remote files still appear local)

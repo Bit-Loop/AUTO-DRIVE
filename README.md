@@ -2,7 +2,7 @@
 
 ![AUTO-DRIVE — Google Drive on Linux, built like iCloud on iOS](assets/banner.jpg)
 
-**Mount 20+ TB of Google Drive on the smallest SSD.**  
+**Mount your entire Google Drive on the smallest Linux SSD — without filling up local disk.**  
 Write at local NVMe speed, auto-evict files after upload, search everything in **`<20ms`**, and lock sensitive data in a zero-knowledge vault with **one password**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -50,7 +50,7 @@ Everything lives neatly inside `/DRIVE` on Google Drive and auto-mounts at `~/DR
 - **`<20ms` Instant Search (`drive-find`)** — Keeps your entire directory tree warm in RAM via Google's 20s delta feed (`0` idle API spam) + a local `0600` index with interactive `fzf` search.
 - **One-Password Zero-Knowledge Vault** — `600,000`-round `PBKDF2-HMAC-SHA256` deterministically derives both `rclone crypt` keys from a single password. No salt files to lose; zero secrets in Git.
 - **Daily Encrypted Snapshots** — Every night at `03:30 UTC`, `/etc` (Nginx, Caddy, TLS certs, systemd) + `$HOME` are archived into `encrypted/snapshots/<host>/` as browseable `.tar.zst` files (`7d / 4w / 6m` retention).
-- **Hardened for Lean VPSes** — Auto-creates a 4 GiB swapfile on low-RAM boxes, locks control sockets to `0700` Unix domain sockets (zero localhost TCP ports exposed to SSRF), and configures `~/.ignore` so `rg`/`fd` never accidentally crawl 20 TB over the network.
+- **Hardened for Lean VPSes** — Auto-creates a 4 GiB swapfile on low-RAM boxes, locks control sockets to `0700` Unix domain sockets (zero localhost TCP ports exposed to SSRF), and configures `~/.ignore` so `rg`/`fd` never accidentally crawl cloud files over the network.
 
 ---
 
@@ -75,7 +75,7 @@ Run from anywhere via `drive-status` / `drive-find`, or via `./run.sh` (`~/DRIVE
 **DuckDB** (`512 MiB` RAM cap + NVMe spill) and **Litestream** come pre-installed and pre-tuned:
 
 ```bash
-# Query multi-TB Zstd Parquet lakes directly on Google Drive without downloading full files
+# Query remote Zstd Parquet datasets directly on Google Drive without downloading full files
 duckdb -c "SELECT * FROM '~/DRIVE/encrypted/data/recon/*.parquet' LIMIT 20;"
 
 # Stream continuous SQLite WAL backups straight into your encrypted vault
