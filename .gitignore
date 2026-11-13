@@ -1,0 +1,13 @@
+# Never commit secrets, rclone configs, keys, sockets, or local runtime state
+.env
+*.env
+*.conf
+rclone.conf
+*.key
+*.pem
+*.sock
+*.log
+*RECOVERY*
+*SECRET*
+.DS_Store
+.rekey-*
