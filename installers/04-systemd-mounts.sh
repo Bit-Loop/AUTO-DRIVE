@@ -64,6 +64,7 @@ COMMON_FLAGS=(
   --rc
   --rc-no-auth
   --allow-other
+  --allow-non-empty
 )
 
 if [[ "\$MODE" == "plain" ]]; then
@@ -74,14 +75,12 @@ if [[ "\$MODE" == "plain" ]]; then
     --file-perms=0755 \\
     --cache-dir="\$AUTO_DRIVE_CACHE_DIR/plain" \\
     --vfs-write-back=30s \\
-    --exclude="/encrypted/**" \\
     --rc-addr="unix://$RC_PLAIN_SOCK"
 elif [[ "\$MODE" == "crypt" ]]; then
   rm -f "$RC_CRYPT_SOCK"
   mkdir -p "\$DRIVE_MOUNT/encrypted"
   exec /usr/bin/rclone mount "\${GDRIVE_CRYPT_REMOTE}:" "\$DRIVE_MOUNT/encrypted" \\
     "\${COMMON_FLAGS[@]}" \\
-    --allow-non-empty \\
     --cache-dir="\$AUTO_DRIVE_CACHE_DIR/crypt" \\
     --vfs-write-back=1m \\
     --rc-addr="unix://$RC_CRYPT_SOCK"
@@ -141,7 +140,7 @@ Group=$AUTO_DRIVE_GROUP
 Environment=GOMEMLIMIT=256MiB
 OOMScoreAdjust=-500
 ExecStart=/usr/local/libexec/auto-drive-mount plain
-ExecStartPost=-/usr/bin/rclone rc --unix-socket=$RC_PLAIN_SOCK vfs/refresh recursive=true _async=true
+ExecStartPost=-/usr/bin/rclone rc --unix-socket=$RC_PLAIN_SOCK vfs/refresh dir=store dir2=installers _async=true
 ExecStop=/bin/fusermount3 -uz $DRIVE_MOUNT
 Restart=always
 RestartSec=5
@@ -199,13 +198,14 @@ OnUnitActiveSec=2m
 WantedBy=timers.target
 EOF
 
-# Stop any legacy single-mount service before starting the new layered mounts
+# Stop any existing mounts cleanly before starting/restarting the layered mounts
+sudo systemctl stop auto-drive-crypt.service auto-drive-root.service 2>/dev/null || true
 if systemctl list-unit-files | grep -q '^rclone-drive\.service'; then
   sudo systemctl disable --now rclone-drive.service 2>/dev/null || true
   sudo rm -f /etc/systemd/system/rclone-drive.service
 fi
-fusermount3 -uz "$DRIVE_MOUNT/encrypted" 2>/dev/null || true
-fusermount3 -uz "$DRIVE_MOUNT" 2>/dev/null || true
+sudo umount -lf "$DRIVE_MOUNT/encrypted" 2>/dev/null || true
+sudo umount -lf "$DRIVE_MOUNT" 2>/dev/null || true
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now auto-drive-root.service
