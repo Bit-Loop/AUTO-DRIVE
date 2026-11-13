@@ -32,6 +32,9 @@ On Google Drive, everything lives neatly inside a single `/DRIVE` folder alongsi
 - **iOS iCloud-Style Dynamic Storage Optimization:**
   - Files written to `~/DRIVE` land on fast local NVMe/SSD first, upload asynchronously in the background, and **pop/evict locally ~5 minutes after closing** (`--vfs-cache-max-age=5m`) while continuing to appear as normal local files that stream on demand when opened.
   - Dynamically caps cache at **20% of local free storage (minimum 2 GiB floor)** and enforces **`--vfs-cache-min-free-space`** (`max(2 GiB, 20% of total disk)`) + a 2-minute rebalance timer so cached cloud files automatically pop whenever local disk space shrinks.
+- **Zero-API-Cost Native File Index & RAM Dir-Cache (`drive-find`):**
+  - Holds the full directory tree in RAM (`--dir-cache-time=9999h`) updated incrementally via Google Drive's lightweight 20-second `changes.list` delta feed (`0` API calls for unchanged folders).
+  - A background `systemd` timer (`auto-drive-index.timer`) walks the local dentry tree every **5 minutes** to pre-warm any remotely modified folders and write a `0600` local TSV index (`~/.cache/auto-drive/index.tsv`), powering **`drive-find`** (`./run.sh find [query]`) for **<5 ms** `fzf` / CLI search across 20 TB without network roundtrips.
 - **Single-Password Zero-Knowledge Vault (`~/DRIVE/encrypted`):**
   - Derives deterministic 256-bit `rclone crypt` key + salt from **one memorable password** via **600,000-iteration PBKDF2-HMAC-SHA256**—unlock `DRIVE/encrypted` on any new Linux machine with just your password (no separate salt files to carry, zero secrets in Git or plain Google Drive).
   - Live password rotation (`./run.sh passwd`) safely stages, re-keys, and re-encrypts `DRIVE/encrypted`.
@@ -64,13 +67,15 @@ During `./run.sh setup`:
 ## Everyday CLI (`./run.sh` or `~/DRIVE/run.sh`)
 
 ```bash
-./run.sh status     # Mount health, dynamic 20% cache stats, upload queue, snapshots, RAM/swap (also: `drive-status`)
-./run.sh backup     # Run an immediate encrypted .tar.zst system snapshot
-./run.sh evict      # Immediately pop unlocked cached files from local SSD (remote files stay visible)
-./run.sh passwd     # Set or rotate your vault password (re-encrypts DRIVE/encrypted)
-./run.sh sync       # Sync repo changes (README.md, run.sh, installers/) into ~/DRIVE/
-./run.sh unmount    # Cleanly stop ~/DRIVE mounts
-./run.sh mount      # Start ~/DRIVE mounts
+./run.sh status          # Mount health, dynamic 20% cache stats, index stats, snapshots, RAM/swap (also: `drive-status`)
+./run.sh find [query]    # <5ms instant search across all 20 TB (interactive fzf picker if no args; also: `drive-find`)
+./run.sh reindex         # Force remote dir-cache refresh + rebuild local index on demand
+./run.sh backup          # Run an immediate encrypted .tar.zst system snapshot
+./run.sh evict           # Immediately pop unlocked cached files from local SSD (remote files stay visible)
+./run.sh passwd          # Set or rotate your vault password (re-encrypts DRIVE/encrypted)
+./run.sh sync            # Sync repo changes (README.md, run.sh, installers/) into ~/DRIVE/
+./run.sh unmount         # Cleanly stop ~/DRIVE mounts
+./run.sh mount           # Start ~/DRIVE mounts
 ```
 
 ---

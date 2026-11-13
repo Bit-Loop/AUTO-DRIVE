@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # AUTO-DRIVE — iCloud-style Linux Google Drive Mount + Encrypted Vault & Snapshots
-# Usage: ./run.sh [setup | status | backup | evict | passwd | mount | unmount | sync | help]
+# Usage: ./run.sh [setup | status | find | reindex | backup | evict | passwd | mount | unmount | sync | help]
 
 set -euo pipefail
 
@@ -27,6 +27,8 @@ fi
 # shellcheck source=installers/lib.sh
 source "$REAL_DIR/installers/lib.sh"
 
+INDEX_FILE="$AUTO_DRIVE_CACHE_DIR/index.tsv"
+
 install_local_cli() {
   install -d -m 0755 -o "$AUTO_DRIVE_USER" -g "$AUTO_DRIVE_GROUP" \
     "$AUTO_DRIVE_HOME/.local/bin" "$AUTO_DRIVE_HOME/.local/share/auto-drive/installers"
@@ -34,12 +36,18 @@ install_local_cli() {
     "$REAL_DIR/run.sh" "$AUTO_DRIVE_HOME/.local/share/auto-drive/run.sh"
   install -m 0755 -o "$AUTO_DRIVE_USER" -g "$AUTO_DRIVE_GROUP" \
     "$REAL_DIR/installers/"*.sh "$AUTO_DRIVE_HOME/.local/share/auto-drive/installers/"
+
   cat > "$AUTO_DRIVE_HOME/.local/bin/drive-status" << EOF
 #!/usr/bin/env bash
 exec "$AUTO_DRIVE_HOME/.local/share/auto-drive/run.sh" status "\$@"
 EOF
-  chown "$AUTO_DRIVE_USER:$AUTO_DRIVE_GROUP" "$AUTO_DRIVE_HOME/.local/bin/drive-status"
-  chmod 0755 "$AUTO_DRIVE_HOME/.local/bin/drive-status"
+  cat > "$AUTO_DRIVE_HOME/.local/bin/drive-find" << EOF
+#!/usr/bin/env bash
+exec "$AUTO_DRIVE_HOME/.local/share/auto-drive/run.sh" find "\$@"
+EOF
+  chown "$AUTO_DRIVE_USER:$AUTO_DRIVE_GROUP" \
+    "$AUTO_DRIVE_HOME/.local/bin/drive-status" "$AUTO_DRIVE_HOME/.local/bin/drive-find"
+  chmod 0755 "$AUTO_DRIVE_HOME/.local/bin/drive-status" "$AUTO_DRIVE_HOME/.local/bin/drive-find"
 }
 
 cmd_setup() {
@@ -48,9 +56,10 @@ cmd_setup() {
   bash "$REAL_DIR/installers/03-auth-and-crypt.sh"
   bash "$REAL_DIR/installers/04-systemd-mounts.sh"
   bash "$REAL_DIR/installers/05-daily-snapshots.sh"
+  bash "$REAL_DIR/installers/06-file-index.sh"
   cmd_sync
   install_local_cli
-  log_ok "AUTO-DRIVE setup complete! Run './run.sh passwd' anytime to change your vault password."
+  log_ok "AUTO-DRIVE setup complete! Use 'drive-status', 'drive-find', or './run.sh passwd'."
 }
 
 cmd_sync() {
@@ -91,6 +100,10 @@ cmd_status() {
       echo "$label -> socket offline"
     fi
   done
+  if [[ -f "$INDEX_FILE" ]]; then
+    printf "Local File Index  -> %s entries (updated %s UTC — search via 'drive-find')\n" \
+      "$(wc -l < "$INDEX_FILE")" "$(date -u -r "$INDEX_FILE" '+%Y-%m-%d %H:%M:%S')"
+  fi
 
   echo ""
   echo "=== 3. Encrypted Daily Snapshots ($DRIVE_MOUNT/encrypted/snapshots) ==="
@@ -105,12 +118,49 @@ cmd_status() {
   free -h | awk 'NR<=3'
 }
 
+cmd_find() {
+  shift || true
+  local query="${*:-}"
+  if [[ ! -f "$INDEX_FILE" ]]; then
+    /usr/local/libexec/auto-drive-index 0
+  fi
+
+  if [[ -n "$query" ]]; then
+    awk -F'\t' -v q="$query" -v mnt="$DRIVE_MOUNT" '
+      BEGIN { IGNORECASE = 1 }
+      index($1, q) > 0 { printf "%s/%s\n", mnt, $1 }
+    ' "$INDEX_FILE"
+  elif [[ -t 1 ]] && command -v fzf >/dev/null 2>&1; then
+    local selected
+    selected=$(awk -F'\t' '{
+      sz = $3 + 0
+      if (sz >= 1073741824)      h = sprintf("%6.1fG", sz/1073741824)
+      else if (sz >= 1048576)    h = sprintf("%6.1fM", sz/1048576)
+      else if (sz >= 1024)       h = sprintf("%6.1fK", sz/1024)
+      else                       h = sprintf("%6dB", sz)
+      printf "[%s] %s  %s  %s\n", $2, h, $4, $1
+    }' "$INDEX_FILE" | fzf --height=70% --layout=reverse --border=rounded --prompt="DRIVE > " || true)
+    if [[ -n "$selected" ]]; then
+      printf '%s/%s\n' "$DRIVE_MOUNT" "$(printf '%s\n' "$selected" | sed -E 's/^\[.\] [0-9. ]+[BKMG]  [0-9-]+ [0-9:]+  //')"
+    fi
+  else
+    awk -F'\t' -v mnt="$DRIVE_MOUNT" '{ printf "%s/%s\n", mnt, $1 }' "$INDEX_FILE"
+  fi
+}
+
+cmd_reindex() {
+  log_info "Refreshing remote dir-caches and rebuilding local file index..."
+  /usr/local/libexec/auto-drive-index 1
+  log_ok "Indexed $(wc -l < "$INDEX_FILE") entries -> $INDEX_FILE"
+}
+
 cmd_backup() {
   local host_tag
   host_tag="$(hostname -s)"
   log_info "Running encrypted snapshot into $DRIVE_MOUNT/encrypted/snapshots/$host_tag/ ..."
   sudo systemctl start auto-drive-snapshot.service
   find "$DRIVE_MOUNT/encrypted/snapshots/$host_tag" -maxdepth 1 -name '*.tar.zst' -printf '%TY-%Tm-%Td %TH:%TM  %k KiB  %f\n' | sort | tail -n 5
+  /usr/local/libexec/auto-drive-index 0 || true
   log_ok "Snapshot complete (uploads asynchronously via encrypted VFS cache)."
 }
 
@@ -159,7 +209,6 @@ cmd_passwd() {
   enc_bytes=$(du -sb "$DRIVE_MOUNT/encrypted" 2>/dev/null | awk '{print $1}' || echo 0)
 
   if (( enc_bytes + two_gib < avail_bytes )); then
-    # Fast path: vault fits on local SSD — stage locally, rotate keys, and restore in seconds
     STAGE_DIR="$(mktemp -d "$AUTO_DRIVE_CACHE_DIR/.rekey-stage.XXXXXX")"
     trap 'rm -rf "$STAGE_DIR"' EXIT
 
@@ -195,7 +244,6 @@ cmd_passwd() {
     rm -rf "$STAGE_DIR"
     trap - EXIT
   else
-    # Streaming path for multi-TB vaults larger than local SSD: flush pending uploads, then stream old-crypt -> new-crypt
     log_info "Vault size exceeds local free SSD; using streaming re-encryption..."
     if [[ -S "$RC_CRYPT_SOCK" ]]; then
       while true; do
@@ -214,7 +262,6 @@ cmd_passwd() {
     rclone --config="$RCLONE_CONF" mkdir "${GDRIVE_REMOTE}:${GDRIVE_DRIVE_PATH}/encrypted"
     mkdir -p "$DRIVE_MOUNT/encrypted"
 
-    # Rename existing crypt section temporarily to read old ciphertext
     sed -i "s/^\[${GDRIVE_CRYPT_REMOTE}\]$/[${OLD_TMP_REMOTE}]/" "$RCLONE_CONF"
     rclone --config="$RCLONE_CONF" config update "$OLD_TMP_REMOTE" remote="$OLD_REMOTE_PATH" >/dev/null
 
@@ -243,6 +290,8 @@ cmd_passwd() {
 case "$CMD" in
   setup)   cmd_setup ;;
   status)  cmd_status ;;
+  find)    cmd_find "$@" ;;
+  reindex) cmd_reindex ;;
   backup)  cmd_backup ;;
   evict)   cmd_evict ;;
   mount)   cmd_mount ;;
@@ -254,14 +303,16 @@ case "$CMD" in
 Usage: ./run.sh <command>
 
 Commands:
-  setup     Install dependencies, link Google Drive, set vault password, enable boot mounts & daily backups
-  status    Show mount health, dynamic 20% cache usage, upload queue, snapshots, and RAM/swap
-  backup    Trigger an immediate encrypted .tar.zst system snapshot into ~/DRIVE/encrypted/snapshots/
-  evict     Immediately pop/evict unlocked cached files locally (remote files still appear local)
-  passwd    Set or rotate the single password unlocking ~/DRIVE/encrypted/ (re-keys existing data)
-  sync      Copy README.md, run.sh, and installers/ from this repo into ~/DRIVE/
-  mount     Start ~/DRIVE and ~/DRIVE/encrypted systemd mounts
-  unmount   Stop ~/DRIVE and ~/DRIVE/encrypted systemd mounts
+  setup           Install dependencies, link Google Drive, set vault password, enable boot mounts & timers
+  status          Show mount health, dynamic 20% cache usage, index count, snapshots, and RAM/swap
+  find [query]    Instant <5ms search across 20 TB local index (interactive fzf picker if no query; alias: drive-find)
+  reindex         Force remote dir-cache refresh + rebuild local file index immediately
+  backup          Trigger an immediate encrypted .tar.zst system snapshot into ~/DRIVE/encrypted/snapshots/
+  evict           Immediately pop/evict unlocked cached files locally (remote files still appear local)
+  passwd          Set or rotate the single password unlocking ~/DRIVE/encrypted/ (re-keys existing data)
+  sync            Copy README.md, run.sh, and installers/ from this repo into ~/DRIVE/
+  mount           Start ~/DRIVE and ~/DRIVE/encrypted systemd mounts
+  unmount         Stop ~/DRIVE and ~/DRIVE/encrypted systemd mounts
 EOF
     ;;
 esac

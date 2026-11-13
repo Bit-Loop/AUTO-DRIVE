@@ -59,7 +59,7 @@ COMMON_FLAGS=(
   --drive-pacer-min-sleep=10ms
   --drive-pacer-burst=200
   --transfers=2
-  --dir-cache-time=72h
+  --dir-cache-time=9999h
   --poll-interval=20s
   --bwlimit=8.5M:off
   --rc
@@ -143,7 +143,7 @@ Group=$AUTO_DRIVE_GROUP
 Environment=GOMEMLIMIT=256MiB
 OOMScoreAdjust=-500
 ExecStart=/usr/local/libexec/auto-drive-mount plain
-ExecStartPost=-/usr/bin/rclone rc --unix-socket=$RC_PLAIN_SOCK vfs/refresh dir=store dir2=installers _async=true
+ExecStartPost=-/usr/bin/rclone rc --unix-socket=$RC_PLAIN_SOCK vfs/refresh dir=store dir2=installers recursive=true _async=true
 ExecStop=/bin/fusermount3 -uz $DRIVE_MOUNT
 Restart=always
 RestartSec=5

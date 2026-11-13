@@ -9,9 +9,9 @@ source "$SCRIPT_DIR/lib.sh"
 
 ARCH="$(dpkg --print-architecture)" # amd64 or arm64
 
-log_info "Checking base packages (fuse3, zstd, jq, curl, unzip, python3)..."
+log_info "Checking base packages (fuse3, zstd, jq, fzf, curl, unzip, python3)..."
 sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fuse3 zstd jq curl unzip python3 ca-certificates >/dev/null
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fuse3 zstd jq fzf curl unzip python3 ca-certificates >/dev/null
 
 # 1. rclone (require >= 1.67 for --vfs-read-chunk-streams & --vfs-cache-min-free-space)
 NEED_RCLONE=1
