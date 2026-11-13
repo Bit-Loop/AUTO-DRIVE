@@ -3,8 +3,15 @@
 
 set -euo pipefail
 
-export AUTO_DRIVE_USER="${AUTO_DRIVE_USER:-$(id -un)}"
-export AUTO_DRIVE_GROUP="${AUTO_DRIVE_GROUP:-$(id -gn)}"
+if [[ -z "${AUTO_DRIVE_USER:-}" ]]; then
+  if (( EUID == 0 )) && [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+    AUTO_DRIVE_USER="$SUDO_USER"
+  else
+    AUTO_DRIVE_USER="$(id -un)"
+  fi
+  export AUTO_DRIVE_USER
+fi
+export AUTO_DRIVE_GROUP="${AUTO_DRIVE_GROUP:-$(id -gn "$AUTO_DRIVE_USER")}"
 export AUTO_DRIVE_HOME="${AUTO_DRIVE_HOME:-$(getent passwd "$AUTO_DRIVE_USER" | cut -d: -f6)}"
 
 export DRIVE_MOUNT="${DRIVE_MOUNT:-$AUTO_DRIVE_HOME/DRIVE}"

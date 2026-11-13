@@ -3,6 +3,7 @@
 
 set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
@@ -113,7 +114,9 @@ if [[ "\$FORCE_POP" == "1" ]]; then
   # Temporarily squeeze CacheMaxSize to 64 MiB so rclone pops all unlocked clean cached files immediately,
   # then restore the 20% budget!
   for sock in "$RC_PLAIN_SOCK" "$RC_CRYPT_SOCK"; do
-    [[ -S "\$sock" ]] && rclone rc --unix-socket="\$sock" options/set --json '{"vfs":{"CacheMaxSize":67108864}}' >/dev/null 2>&1 || true
+    if [[ -S "\$sock" ]]; then
+      rclone rc --unix-socket="\$sock" options/set --json '{"vfs":{"CacheMaxSize":67108864}}' >/dev/null 2>&1 || true
+    fi
   done
   sleep 2
 fi
