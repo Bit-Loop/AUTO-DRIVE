@@ -1,10 +1,9 @@
 <div align="center">
 
-# AUTO-DRIVE
+![AUTO-DRIVE — Google Drive on Linux, built like iCloud on iOS](assets/banner.jpg)
 
-### Google Drive on Linux — built to feel like iCloud on iOS.
-
-Mount **20+ TB** of Google Drive on the smallest SSD. Write at local NVMe speed, auto-evict files after upload, search everything in **`<20ms`**, and lock sensitive data in a zero-knowledge vault with **one password**.
+**Mount 20+ TB of Google Drive on the smallest SSD.**  
+Write at local NVMe speed, auto-evict files after upload, search everything in **`<20ms`**, and lock sensitive data in a zero-knowledge vault with **one password**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Linux-Ubuntu%20%7C%20Debian%20%28x64%20%26%20ARM64%29-orange.svg)](#quickstart)
