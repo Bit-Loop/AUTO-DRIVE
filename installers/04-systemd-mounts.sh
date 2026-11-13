@@ -80,6 +80,7 @@ elif [[ "\$MODE" == "crypt" ]]; then
   mkdir -p "\$DRIVE_MOUNT/encrypted"
   exec /usr/bin/rclone mount "\${GDRIVE_CRYPT_REMOTE}:" "\$DRIVE_MOUNT/encrypted" \\
     "\${COMMON_FLAGS[@]}" \\
+    --allow-non-empty \\
     --cache-dir="\$AUTO_DRIVE_CACHE_DIR/crypt" \\
     --vfs-write-back=1m \\
     --rc-addr="unix://$RC_CRYPT_SOCK"

@@ -176,6 +176,8 @@ cmd_passwd() {
 
   log_info "Remounting $DRIVE_MOUNT/encrypted with new key and restoring data..."
   sudo systemctl start auto-drive-crypt.service
+  for _ in {1..15}; do mountpoint -q "$DRIVE_MOUNT/encrypted" && break; sleep 1; done
+  mountpoint -q "$DRIVE_MOUNT/encrypted" || { log_err "Encrypted mount failed to come up; staged files preserved at $STAGE_DIR"; trap - EXIT; exit 1; }
   cp -a "$STAGE_DIR/." "$DRIVE_MOUNT/encrypted/"
   rm -rf "$STAGE_DIR"
   trap - EXIT
