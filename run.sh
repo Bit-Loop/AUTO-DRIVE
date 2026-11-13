@@ -34,10 +34,12 @@ cmd_setup() {
   bash "$REAL_DIR/installers/05-daily-snapshots.sh"
   cmd_sync
 
-  install -d -m 0755 "$AUTO_DRIVE_HOME/.local/bin"
+  install -d -m 0755 "$AUTO_DRIVE_HOME/.local/bin" "$AUTO_DRIVE_HOME/.local/share/auto-drive/installers"
+  install -m 0755 "$REAL_DIR/run.sh" "$AUTO_DRIVE_HOME/.local/share/auto-drive/run.sh"
+  install -m 0755 "$REAL_DIR/installers/"*.sh "$AUTO_DRIVE_HOME/.local/share/auto-drive/installers/"
   cat > "$AUTO_DRIVE_HOME/.local/bin/drive-status" << EOF
 #!/usr/bin/env bash
-exec /usr/bin/env bash "$DRIVE_MOUNT/run.sh" status "\$@"
+exec "$AUTO_DRIVE_HOME/.local/share/auto-drive/run.sh" status "\$@"
 EOF
   chmod 0755 "$AUTO_DRIVE_HOME/.local/bin/drive-status"
   log_ok "AUTO-DRIVE setup complete! Run './run.sh passwd' anytime to change your vault password."
