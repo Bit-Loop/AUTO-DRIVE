@@ -3,7 +3,7 @@
 ![AUTO-DRIVE — Google Drive on Linux, built like iCloud on iOS](assets/banner.jpg)
 
 **Mount your entire Google Drive on the smallest Linux SSD — without filling up local disk.**  
-Write at local NVMe speed, auto-evict files after upload, search everything in **`<20ms`**, and lock sensitive data in a zero-knowledge vault with **one password**.
+Write at local NVMe speed, auto-evict files after upload, search everything in **`<20ms`**, and run **automated encrypted backups** + a zero-knowledge vault behind **one password**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Linux-Ubuntu%20%7C%20Debian%20%28x64%20%26%20ARM64%29-orange.svg)](#quickstart)
