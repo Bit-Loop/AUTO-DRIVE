@@ -137,22 +137,12 @@ cmd_passwd() {
     done
   fi
 
-  # Wait for any in-flight dirty uploads on crypt before staging
-  if [[ -S "$RC_CRYPT_SOCK" ]]; then
-    while true; do
-      pending=$(rclone rc --unix-socket="$RC_CRYPT_SOCK" vfs/stats | jq '.diskCache.uploadsInProgress + .diskCache.uploadsQueued')
-      (( pending == 0 )) && break
-      log_info "Waiting for $pending pending encrypted upload(s) to finish..."
-      sleep 2
-    done
-  fi
-
   umask 077
   STAGE_DIR="$(mktemp -d "$AUTO_DRIVE_CACHE_DIR/.rekey-stage.XXXXXX")"
   trap 'rm -rf "$STAGE_DIR"' EXIT
 
   log_info "Staging decrypted contents of $DRIVE_MOUNT/encrypted locally..."
-  cp -a "$DRIVE_MOUNT/encrypted/." "$STAGE_DIR/"
+  cp -r --preserve=timestamps "$DRIVE_MOUNT/encrypted/." "$STAGE_DIR/"
 
   log_info "Stopping encrypted sub-mount and rotating PBKDF2-SHA256 keys..."
   sudo systemctl stop auto-drive-crypt.service
@@ -178,7 +168,7 @@ cmd_passwd() {
   sudo systemctl start auto-drive-crypt.service
   for _ in {1..15}; do mountpoint -q "$DRIVE_MOUNT/encrypted" && break; sleep 1; done
   mountpoint -q "$DRIVE_MOUNT/encrypted" || { log_err "Encrypted mount failed to come up; staged files preserved at $STAGE_DIR"; trap - EXIT; exit 1; }
-  cp -a "$STAGE_DIR/." "$DRIVE_MOUNT/encrypted/"
+  cp -r --preserve=timestamps "$STAGE_DIR/." "$DRIVE_MOUNT/encrypted/"
   rm -rf "$STAGE_DIR"
   trap - EXIT
 
