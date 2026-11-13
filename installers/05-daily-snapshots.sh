@@ -21,7 +21,9 @@ for p in /etc/nginx /etc/caddy /etc/traefik /etc/haproxy /etc/letsencrypt /etc/s
 done
 
 if (( \${#existing[@]} > 0 )); then
-  tar --zstd -cf "$AUTO_DRIVE_HOME/.backups/etc-system-and-proxy.tar.zst" --warning=no-file-changed "\${existing[@]}"
+  tar --zstd -cf "$AUTO_DRIVE_HOME/.backups/etc-system-and-proxy.tar.zst" \\
+    --warning=no-file-changed --warning=no-file-removed --warning=no-file-ignored \\
+    "\${existing[@]}" || { rc=\$?; (( rc == 1 )) || exit "\$rc"; }
   chown $AUTO_DRIVE_USER:$AUTO_DRIVE_GROUP "$AUTO_DRIVE_HOME/.backups/etc-system-and-proxy.tar.zst"
   chmod 0600 "$AUTO_DRIVE_HOME/.backups/etc-system-and-proxy.tar.zst"
 fi
@@ -49,17 +51,19 @@ trap 'rm -f "\$TMP_ARCHIVE"' EXIT
 
 # Build compressed archive on fast local SSD first, excluding ~/DRIVE and ephemeral caches
 tar --zstd -cf "\$TMP_ARCHIVE" \\
-  --warning=no-file-changed \\
+  --warning=no-file-changed --warning=no-file-removed --warning=no-file-ignored \\
   --one-file-system \\
   --exclude="$DRIVE_MOUNT" \\
   --exclude="$AUTO_DRIVE_HOME/.cache" \\
   --exclude="$AUTO_DRIVE_HOME/.duckdb" \\
   --exclude="$AUTO_DRIVE_HOME/.npm" \\
   --exclude="$AUTO_DRIVE_HOME/.bun/install/cache" \\
+  --exclude='*.sock' \\
   --exclude='**/node_modules' \\
   --exclude='**/target/debug' \\
   --exclude='**/target/release' \\
-  -C "$(dirname "$AUTO_DRIVE_HOME")" "$(basename "$AUTO_DRIVE_HOME")"
+  -C "$(dirname "$AUTO_DRIVE_HOME")" "$(basename "$AUTO_DRIVE_HOME")" \\
+  || { rc=\$?; (( rc == 1 )) || exit "\$rc"; }
 
 mv -f "\$TMP_ARCHIVE" "\$FINAL_ARCHIVE"
 trap - EXIT
